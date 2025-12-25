@@ -18,7 +18,9 @@ type Speed = keyof typeof SPEEDS;
 
 import { useSearchParams } from "next/navigation";
 
-export default function SlideshowPage() {
+import { Suspense } from "react";
+
+function SlideshowContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const albumId = searchParams.get("albumId") || "all";
@@ -194,5 +196,13 @@ export default function SlideshowPage() {
                 </button>
             </motion.div>
         </div>
+    );
+}
+
+export default function SlideshowPage() {
+    return (
+        <Suspense fallback={<div className="bg-black min-h-screen grid place-items-center text-white">Loading...</div>}>
+            <SlideshowContent />
+        </Suspense>
     );
 }

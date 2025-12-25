@@ -13,7 +13,9 @@ import { DndContext, DragEndEvent, DragOverlay, MouseSensor, TouchSensor, useSen
 import PhotoCard from "@/components/gallery/PhotoCard";
 import CozyToast from "@/components/ui/CozyToast";
 
-export default function GalleryPage() {
+import { Suspense } from "react";
+
+function GalleryContent() {
     const searchParams = useSearchParams();
     const initialAlbum = searchParams.get("album") || "all";
 
@@ -191,5 +193,13 @@ export default function GalleryPage() {
                 />
             </main>
         </DndContext>
+    );
+}
+
+export default function GalleryPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen w-full bg-inner-bg grid place-items-center">Loading gallery...</div>}>
+            <GalleryContent />
+        </Suspense>
     );
 }

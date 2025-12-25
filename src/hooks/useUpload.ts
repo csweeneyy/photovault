@@ -61,7 +61,7 @@ export function useUpload() {
     const processDropItems = async (items: DataTransferItemList) => {
         const collectedFiles: File[] = [];
         for (let i = 0; i < items.length; i++) {
-            const item = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+            const item = items[i].webkitGetAsEntry();
             if (item) {
                 collectedFiles.push(...(await traverseFileTree(item)));
             } else if (items[i].kind === 'file') {
