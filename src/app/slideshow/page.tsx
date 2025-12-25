@@ -16,9 +16,14 @@ const SPEEDS = {
 
 type Speed = keyof typeof SPEEDS;
 
+import { useSearchParams } from "next/navigation";
+
 export default function SlideshowPage() {
     const router = useRouter();
-    const { photos, loading } = usePhotos("all");
+    const searchParams = useSearchParams();
+    const albumId = searchParams.get("albumId") || "all";
+
+    const { photos, loading } = usePhotos(albumId);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isPlaying, setIsPlaying] = useState(true);
     const [speed, setSpeed] = useState<Speed>("medium");
@@ -108,11 +113,11 @@ export default function SlideshowPage() {
                     className="absolute inset-0 grid place-items-center"
                 >
                     {/* Subtle Ken Burns Effect can be added here with scaling */}
-                    <div className="relative w-full h-full">
+                    <div className="relative w-full h-full flex items-center justify-center p-4 md:p-10">
                         <img
                             src={currentPhoto.url}
                             alt="Slideshow"
-                            className="h-full w-full object-contain"
+                            className="max-h-full max-w-full object-contain shadow-2xl"
                         />
                         {/* Caption Overlay - Optional */}
                         {currentPhoto.caption && (
@@ -173,7 +178,7 @@ export default function SlideshowPage() {
                         {currentIndex + 1} / {photos.length}
                     </span>
                 </div>
-            </AnimatePresence>
+            </motion.div>
 
             {/* Top Controls */}
             <motion.div

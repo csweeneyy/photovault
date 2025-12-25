@@ -1,32 +1,72 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, useAnimation } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
+import { createClient } from "@/lib/supabase";
 
-// Placeholder photos for initial dev
-const HARDCODED_PHOTOS = [
-    { src: "https://picsum.photos/400/500?random=1", x: 10, y: 10, r: -5, scale: 1 },
-    { src: "https://picsum.photos/400/500?random=2", x: 70, y: 15, r: 8, scale: 0.9 },
-    { src: "https://picsum.photos/400/500?random=3", x: 20, y: 60, r: -12, scale: 1.1 },
-    { src: "https://picsum.photos/400/500?random=4", x: 80, y: 65, r: 4, scale: 0.95 },
-    { src: "https://picsum.photos/400/500?random=5", x: 45, y: 30, r: 2, scale: 0.8 },
-    { src: "https://picsum.photos/400/500?random=6", x: 15, y: 85, r: -8, scale: 1.0 },
+// USER: Add your favorite photo PUBLIC URLs here to prioritize them in the background
+// Example: ["https://example.com/photo1.jpg", "https://example.com/photo2.jpg"]
+const HARDCODED_FAVORITES: string[] = [
+    // Add URLs here
+];
+
+const POSITIONS = [
+    { x: 15, y: 12, r: -5, scale: 1 },    // Top Left - shifted right/down
+    { x: 75, y: 15, r: 8, scale: 0.9 },   // Top Right - safe
+    { x: 25, y: 65, r: -12, scale: 1.1 }, // Bottom Left - shifted up
+    { x: 82, y: 70, r: 4, scale: 0.95 },  // Bottom Right - safe
+    { x: 50, y: 40, r: 2, scale: 0.85 },  // Center - slightly adjusted
+    { x: 20, y: 82, r: -8, scale: 1.0 },  // Bottom Left (low) - shifted up from 85
 ];
 
 export default function ScatteredPhotos() {
     const [mounted, setMounted] = useState(false);
+    const [photos, setPhotos] = useState<{ src: string, x: number, y: number, r: number, scale: number }[]>([]);
 
     useEffect(() => {
-        setMounted(true);
+        const fetchBackgroundPhotos = async () => {
+            const supabase = createClient();
+
+            // 1. Get random photos from vault
+            const { data } = await supabase
+                .from("photos")
+                .select("storage_path")
+                .limit(20)
+                .order("created_at", { ascending: false }); // Just get recent ones or randomize if we could
+
+            const vaultUrls = (data || []).map(p =>
+                supabase.storage.from("photos").getPublicUrl(p.storage_path).data.publicUrl
+            );
+
+            // 2. Combine with Favorites
+            const allUrls = [...HARDCODED_FAVORITES, ...vaultUrls];
+
+            // 3. Shuffle and pick 6
+            const shuffled = allUrls.sort(() => 0.5 - Math.random()).slice(0, 6);
+
+            // If we don't have enough, fill with placeholders
+            while (shuffled.length < 6) {
+                shuffled.push(`https://picsum.photos/400/500?random=${shuffled.length}`);
+            }
+
+            // 4. Map to positions
+            const mapped = shuffled.map((url, i) => ({
+                src: url,
+                ...POSITIONS[i % POSITIONS.length]
+            }));
+
+            setPhotos(mapped);
+            setMounted(true);
+        };
+
+        fetchBackgroundPhotos();
     }, []);
 
     return (
         <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-            {mounted &&
-                HARDCODED_PHOTOS.map((photo, i) => (
-                    <FloatingPhoto key={i} photo={photo} index={i} />
-                ))}
+            {mounted && photos.map((photo, i) => (
+                <FloatingPhoto key={i} photo={photo} index={i} />
+            ))}
         </div>
     );
 }

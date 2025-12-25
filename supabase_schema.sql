@@ -1,5 +1,5 @@
 -- Albums table
-CREATE TABLE albums (
+CREATE TABLE IF NOT EXISTS albums (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
@@ -9,11 +9,13 @@ CREATE TABLE albums (
 );
 
 -- Photos table
-CREATE TABLE photos (
+CREATE TABLE IF NOT EXISTS photos (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   storage_path TEXT NOT NULL,
   album_id UUID REFERENCES albums(id) ON DELETE SET NULL,
   caption TEXT,
+  name TEXT,      -- New field
+  location TEXT,  -- New field
   uploaded_by TEXT,
   width INTEGER,
   height INTEGER,
@@ -136,8 +138,13 @@ WITH CHECK ( bucket_id = 'photos' );
 -- CREATE POLICY "Authenticated users can select photos" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'photos');
 -- But for public bucket, read is implicit for public URLs.
 
--- Allow authenticated delete
 CREATE POLICY "Authenticated users can delete photos"
 ON storage.objects FOR DELETE
 TO authenticated
 USING ( bucket_id = 'photos' );
+
+-- ==========================================
+-- MIGRATION: Add new columns (Run this if tables already exist)
+-- ==========================================
+-- ALTER TABLE photos ADD COLUMN IF NOT EXISTS name TEXT;
+-- ALTER TABLE photos ADD COLUMN IF NOT EXISTS location TEXT;

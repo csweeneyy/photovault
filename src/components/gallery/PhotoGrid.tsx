@@ -2,10 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Photo } from "@/hooks/usePhotos";
-import PhotoCard from "./PhotoCard";
+import { DraggablePhoto } from "./DraggablePhoto";
 import Skeleton from "@/components/ui/Skeleton";
 import { splitArray } from "@/lib/masonry";
-import { motion } from "framer-motion";
 
 interface PhotoGridProps {
     photos: Photo[];
@@ -13,6 +12,8 @@ interface PhotoGridProps {
     hasMore: boolean;
     loadMore: () => void;
     onPhotoClick: (index: number) => void;
+    onSelectionChange?: (id: string) => void;
+    selectedIds?: Set<string>;
 }
 
 export default function PhotoGrid({
@@ -20,12 +21,14 @@ export default function PhotoGrid({
     loading,
     hasMore,
     loadMore,
-    onPhotoClick
+    onPhotoClick,
+    onSelectionChange,
+    selectedIds
 }: PhotoGridProps) {
     const observerTarget = useRef<HTMLDivElement>(null);
     const [columns, setColumns] = useState(2);
 
-    // Responsive columns (naive execution)
+    // Responsive columns 
     useEffect(() => {
         const handleResize = () => {
             const width = window.innerWidth;
@@ -56,7 +59,6 @@ export default function PhotoGrid({
         return () => observer.disconnect();
     }, [hasMore, loading, loadMore]);
 
-    // Split photos into columns
     const photoColumns = splitArray(photos, columns);
 
     // Loading state
@@ -72,22 +74,22 @@ export default function PhotoGrid({
         );
     }
 
+    // Render plain grid (DnD wrapper is in parent)
     return (
         <div className="px-4 pb-20 md:px-8">
             <div className="flex gap-4 md:gap-6">
                 {photoColumns.map((col, colIndex) => (
                     <div key={colIndex} className="flex flex-col gap-4 md:gap-6 flex-1">
                         {col.map((photo, i) => {
-                            // Find original index for click handler
-                            // This naive calculation doesn't work well because splitArray interleaves.
-                            // We need to pass the real index or just find it. 
                             const realIndex = photos.indexOf(photo);
 
                             return (
                                 <div key={photo.id} onClick={() => onPhotoClick(realIndex)}>
-                                    <PhotoCard
+                                    <DraggablePhoto
                                         photo={photo}
-                                        index={i} // Using column index for delay calculation logic inside card
+                                        index={i}
+                                        isSelected={selectedIds?.has(photo.id)}
+                                        onToggleSelect={() => onSelectionChange && onSelectionChange(photo.id)}
                                     />
                                 </div>
                             );

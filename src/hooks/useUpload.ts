@@ -3,12 +3,18 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
+import exifr from "exifr";
 
 export interface UploadFile {
     file: File;
     preview: string;
     id: string;
     status: "pending" | "uploading" | "success" | "error";
+    metadata?: {
+        takenAt?: string;
+        latitude?: number;
+        longitude?: number;
+    }
 }
 
 export function useUpload() {
@@ -18,10 +24,61 @@ export function useUpload() {
     const supabase = createClient();
     const { displayName } = useAuth();
 
+    // Helper to traverse FileSystemEntry (folders)
+    const traverseFileTree = async (item: any, path = ""): Promise<File[]> => {
+        if (item.isFile) {
+            return new Promise((resolve) => {
+                item.file((file: File) => resolve([file]));
+            });
+        } else if (item.isDirectory) {
+            const dirReader = item.createReader();
+            const entries: any[] = [];
+
+            // readEntries needs to be called until it returns empty to handle large folders
+            const readBatch = async (): Promise<void> => {
+                return new Promise((resolve) => {
+                    dirReader.readEntries(async (batch: any[]) => {
+                        if (batch.length > 0) {
+                            entries.push(...batch);
+                            await readBatch();
+                        }
+                        resolve();
+                    });
+                });
+            };
+
+            await readBatch();
+
+            const files: File[] = [];
+            for (const entry of entries) {
+                files.push(...(await traverseFileTree(entry, path + item.name + "/")));
+            }
+            return files;
+        }
+        return [];
+    };
+
+    const processDropItems = async (items: DataTransferItemList) => {
+        const collectedFiles: File[] = [];
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+            if (item) {
+                collectedFiles.push(...(await traverseFileTree(item)));
+            } else if (items[i].kind === 'file') {
+                const file = items[i].getAsFile();
+                if (file) collectedFiles.push(file);
+            }
+        }
+        processFiles(collectedFiles);
+    };
+
     const processFiles = async (newFiles: File[]) => {
         const processedFiles: UploadFile[] = [];
 
-        for (const file of newFiles) {
+        // Filter for images only
+        const imageFiles = newFiles.filter(f => f.type.startsWith("image/") || f.name.toLowerCase().endsWith(".heic"));
+
+        for (const file of imageFiles) {
             // Use local blob unless it's HEIC, then convert
             let fileToUse = file;
             let previewUrl = "";
@@ -48,6 +105,21 @@ export function useUpload() {
                 }
             }
 
+            // Extract Metadata
+            let metadata = {};
+            try {
+                const exifData = await exifr.parse(fileToUse);
+                if (exifData) {
+                    metadata = {
+                        takenAt: exifData.DateTimeOriginal || exifData.CreateDate,
+                        latitude: exifData.latitude,
+                        longitude: exifData.longitude
+                    };
+                }
+            } catch (e) {
+                // Ignore metadata errors
+            }
+
             previewUrl = URL.createObjectURL(fileToUse);
 
             processedFiles.push({
@@ -55,6 +127,7 @@ export function useUpload() {
                 preview: previewUrl,
                 id: Math.random().toString(36).substring(7),
                 status: "pending",
+                metadata
             });
         }
 
@@ -82,7 +155,7 @@ export function useUpload() {
                     prev.map((f) => (f.id === fileObj.id ? { ...f, status: "uploading" } : f))
                 );
 
-                const fileName = `${Date.now()}-${fileObj.file.name}`;
+                const fileName = `${Date.now()}-${fileObj.file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
 
                 // 1. Upload to Storage
                 const { error: uploadError } = await supabase.storage
@@ -92,10 +165,14 @@ export function useUpload() {
                 if (uploadError) throw uploadError;
 
                 // 2. Insert into DB
+                // Use filename as default caption if none provided
+                const defaultName = fileObj.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+
                 const { error: dbError } = await supabase.from("photos").insert({
                     storage_path: fileName,
                     album_id: albumId,
-                    caption: caption,
+                    caption: caption, // Default to empty if not provided by user
+                    name: defaultName, // Filename without extension
                     uploaded_by: displayName || "Guest",
                     width: 0,
                     height: 0,
@@ -127,7 +204,7 @@ export function useUpload() {
                 if (nextFile) {
                     // Wrap in tracking promise
                     const promise = uploadSingle(nextFile).then(() => {
-                        // NO-OP, completion handled inside uploadSingle
+                        // NO-OP
                     });
                     // Track promise to remove from active list when done
                     const trackPromise = promise.then(() => {
@@ -153,6 +230,7 @@ export function useUpload() {
     return {
         files,
         processFiles,
+        processDropItems,
         removeFile,
         uploadAll,
         isUploading,

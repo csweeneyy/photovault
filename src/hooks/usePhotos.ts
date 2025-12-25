@@ -11,6 +11,10 @@ export interface Photo {
     likes_count?: number;
     comments_count?: number;
     caption?: string;
+    name?: string;
+    location?: string;
+    uploaded_by?: string;
+    album_name?: string; // For search
     created_at: string;
     url?: string; // Signed or public URL
 }
@@ -59,7 +63,15 @@ export function usePhotos(albumId: string = "all") {
             }
 
             const formattedPhotos: Photo[] = (data || []).map((p: any) => ({
-                ...p,
+                id: p.id,
+                storage_path: p.storage_path,
+                width: p.width,
+                height: p.height,
+                caption: p.caption,
+                name: p.name,
+                location: p.location,
+                created_at: p.created_at,
+                uploaded_by: p.uploaded_by,
                 likes_count: p.reactions?.[0]?.count || 0,
                 comments_count: p.comments?.[0]?.count || 0,
                 url: getPhotoUrl(p.storage_path),
@@ -87,5 +99,5 @@ export function usePhotos(albumId: string = "all") {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [albumId]); // Reset when album changes
 
-    return { photos, loading, hasMore, loadMore: () => fetchPhotos(false) };
+    return { photos, loading, hasMore, loadMore: () => fetchPhotos(false), setPhotos, refreshPhotos: () => fetchPhotos(true) };
 }

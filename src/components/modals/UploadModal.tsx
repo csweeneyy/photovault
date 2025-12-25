@@ -1,9 +1,11 @@
-import { useState, useRef } from "react";
+"use client";
+
+import { useState, useRef, useEffect } from "react";
 import Modal from "@/components/ui/Modal";
 import { useUpload } from "@/hooks/useUpload";
 import { useAlbums } from "@/hooks/useAlbums";
-import { Upload, X, Image as ImageIcon } from "lucide-react";
-import { motion } from "framer-motion";
+import { Upload, X, ChevronDown, Check, Plus } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface UploadModalProps {
@@ -20,6 +22,7 @@ export default function UploadModal({
     const {
         files,
         processFiles,
+        processDropItems,
         removeFile,
         uploadAll,
         isUploading,
@@ -29,9 +32,28 @@ export default function UploadModal({
 
     const [dragActive, setDragActive] = useState(false);
     const [caption, setCaption] = useState("");
+
+    // Album Selection & Creation State
     const [selectedAlbumId, setSelectedAlbumId] = useState<string>("");
+    const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
+    const [newAlbumName, setNewAlbumName] = useState("");
+
+    // Custom Dropdown State
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
     const inputRef = useRef<HTMLInputElement>(null);
-    const { albums } = useAlbums(); // requires useAlbums hook usage
+    const { albums, refreshAlbums, createAlbum } = useAlbums();
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const handleFiles = (newFiles: FileList | null) => {
         if (newFiles) {
@@ -43,21 +65,43 @@ export default function UploadModal({
         e.preventDefault();
         e.stopPropagation();
         setDragActive(false);
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+
+        if (e.dataTransfer.items) {
+            processDropItems(e.dataTransfer.items);
+        } else if (e.dataTransfer.files) {
             handleFiles(e.dataTransfer.files);
         }
     };
 
     const handleUpload = async () => {
-        const success = await uploadAll(selectedAlbumId || null, caption);
+        let targetAlbumId = selectedAlbumId;
+
+        // If creating a new album, create it first
+        if (isCreatingAlbum && newAlbumName.trim()) {
+            const newAlbum = await createAlbum(newAlbumName.trim());
+            if (newAlbum) {
+                targetAlbumId = newAlbum.id;
+            } else {
+                console.error("Failed to create album");
+                return;
+            }
+        }
+
+        const success = await uploadAll(targetAlbumId || null, caption);
         if (success) {
             clearFiles();
             setCaption("");
             setSelectedAlbumId("");
+            setNewAlbumName("");
+            setIsCreatingAlbum(false);
             onUploadComplete();
             onClose();
         }
     };
+
+    const selectedAlbumName = selectedAlbumId
+        ? albums.find(a => a.id === selectedAlbumId)?.name
+        : "No Album (All Photos)";
 
     return (
         <Modal
@@ -111,10 +155,10 @@ export default function UploadModal({
                     />
                     <p className="text-center text-sm text-inner-text-muted">
                         <span className="font-medium text-inner-text">Click to upload</span>{" "}
-                        or drag and drop
+                        or drag and drop folders
                     </p>
                     <p className="mt-1 text-xs text-inner-text-muted/70">
-                        JPG, PNG, HEIC up to 20MB
+                        JPG, PNG, HEIC up to 50MB
                     </p>
                 </div>
 
@@ -181,23 +225,83 @@ export default function UploadModal({
                 {/* Caption & Actions */}
                 <div className="flex flex-col gap-4">
                     <div className="grid grid-cols-2 gap-4">
-                        <select
-                            value={selectedAlbumId}
-                            onChange={(e) => setSelectedAlbumId(e.target.value)}
-                            className="w-full rounded-lg border border-inner-border bg-inner-bg px-4 py-2 text-inner-text focus:border-inner-accent focus:outline-none appearance-none"
-                            style={{ backgroundImage: 'none' }} // Remove default arrow if needed or keep standard
-                        >
-                            <option value="">No Album (All Photos)</option>
-                            {albums.map((album) => (
-                                <option key={album.id} value={album.id}>
-                                    {album.name}
-                                </option>
-                            ))}
-                        </select>
+                        {/* Custom Dropdown / Input Switcher */}
+                        {isCreatingAlbum ? (
+                            <div className="relative animate-in fade-in zoom-in duration-200">
+                                <input
+                                    type="text"
+                                    placeholder="Enter new album name..."
+                                    value={newAlbumName}
+                                    onChange={(e) => setNewAlbumName(e.target.value)}
+                                    autoFocus
+                                    className="w-full rounded-lg border border-inner-accent bg-inner-bg px-4 py-2 text-inner-text focus:outline-none ring-2 ring-inner-accent/20"
+                                />
+                                <button
+                                    onClick={() => { setIsCreatingAlbum(false); setNewAlbumName(""); }}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-inner-text-muted hover:text-error transition-colors"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="relative" ref={dropdownRef}>
+                                <button
+                                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                    className="flex w-full items-center justify-between rounded-lg border border-inner-border bg-inner-bg px-4 py-2 text-inner-text hover:border-inner-accent/50 focus:border-inner-accent focus:outline-none"
+                                >
+                                    <span className="truncate">{selectedAlbumName}</span>
+                                    <ChevronDown size={16} className={cn("text-inner-text-muted transition-transform", isDropdownOpen && "rotate-180")} />
+                                </button>
+
+                                <AnimatePresence>
+                                    {isDropdownOpen && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 5 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: 5 }}
+                                            className="absolute bottom-full mb-1 left-0 z-50 max-h-60 w-full overflow-y-auto rounded-lg border border-inner-border bg-white shadow-xl"
+                                        >
+                                            <div className="p-1">
+                                                <button
+                                                    onClick={() => { setSelectedAlbumId(""); setIsDropdownOpen(false); }}
+                                                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-inner-text hover:bg-inner-bg"
+                                                >
+                                                    <span>No Album (All Photos)</span>
+                                                    {selectedAlbumId === "" && <Check size={14} className="text-inner-accent" />}
+                                                </button>
+
+                                                <div className="h-px bg-inner-border/50 my-1" />
+
+                                                {albums.map((album) => (
+                                                    <button
+                                                        key={album.id}
+                                                        onClick={() => { setSelectedAlbumId(album.id); setIsDropdownOpen(false); }}
+                                                        className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-inner-text hover:bg-inner-bg"
+                                                    >
+                                                        <span className="truncate">{album.name}</span>
+                                                        {selectedAlbumId === album.id && <Check size={14} className="text-inner-accent" />}
+                                                    </button>
+                                                ))}
+
+                                                <div className="h-px bg-inner-border/50 my-1" />
+
+                                                <button
+                                                    onClick={() => { setIsCreatingAlbum(true); setIsDropdownOpen(false); }}
+                                                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-inner-accent hover:bg-inner-accent/10 font-medium"
+                                                >
+                                                    <Plus size={14} />
+                                                    <span>Create New Album</span>
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        )}
 
                         <input
                             type="text"
-                            placeholder="Add a caption... (optional)"
+                            placeholder="Add a common caption..."
                             value={caption}
                             onChange={(e) => setCaption(e.target.value)}
                             className="w-full rounded-lg border border-inner-border bg-inner-bg px-4 py-2 text-inner-text placeholder:text-inner-text-muted focus:border-inner-accent focus:outline-none"
@@ -228,7 +332,7 @@ export default function UploadModal({
                             </button>
                             <button
                                 onClick={handleUpload}
-                                disabled={files.length === 0 || isUploading}
+                                disabled={files.length === 0 || isUploading || (isCreatingAlbum && !newAlbumName.trim())}
                                 className="rounded-full bg-inner-text px-6 py-2 text-sm font-medium text-white shadow-sm hover:bg-black/80 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isUploading ? "Uploading..." : `Upload ${files.length > 0 ? files.length + " Photos" : ""}`}

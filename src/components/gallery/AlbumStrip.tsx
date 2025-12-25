@@ -9,38 +9,51 @@ import CreateAlbumModal from "@/components/modals/CreateAlbumModal";
 import AlbumContextMenu from "./AlbumContextMenu";
 import { useDroppable } from "@dnd-kit/core";
 
-interface AlbumPillsProps {
+interface AlbumStripProps {
     activeAlbum: string;
     onAlbumChange: (id: string) => void;
 }
 
-// Separate component without the menu inside
-function DroppableAlbumPill({ album, activeAlbum, onClick, onContextMenu }: any) {
+function AlbumCard({ album, activeAlbum, onClick, onContextMenu }: any) {
     const { setNodeRef, isOver } = useDroppable({
         id: `album-${album.id}`,
         data: { albumId: album.id },
     });
 
+    const isAll = album.id === "all";
+
     return (
-        <div ref={setNodeRef} className="relative group/pill flex items-center">
+        <div ref={setNodeRef} className="relative group shrink-0">
             <button
                 onClick={() => onClick(album.id)}
                 className={cn(
-                    "rounded-full px-4 py-1.5 text-sm font-medium transition-colors whitespace-nowrap",
+                    "relative h-24 w-24 overflow-hidden rounded-xl border-2 transition-all bg-cover bg-center bg-no-repeat",
                     activeAlbum === album.id
-                        ? "bg-inner-accent text-white shadow-sm"
-                        : "border border-inner-border text-inner-text-muted hover:bg-inner-bg",
-                    isOver && "ring-2 ring-inner-accent bg-inner-accent/10"
+                        ? "border-inner-accent shadow-md scale-105"
+                        : "border-transparent bg-gray-100 hover:bg-gray-200",
+                    isOver && "border-inner-accent ring-4 ring-inner-accent/20 scale-110"
                 )}
+                style={album.coverUrl ? { backgroundImage: `url(${album.coverUrl})` } : {}}
             >
-                {album.name}
+                {/* Dark Overlay for Text Readability */}
+                <div className={cn(
+                    "absolute inset-0 flex flex-col items-center justify-center p-2 text-center transition-colors",
+                    album.coverUrl ? "bg-black/40 group-hover:bg-black/50" : "bg-transparent"
+                )}>
+                    <span className={cn(
+                        "text-xs font-semibold line-clamp-2",
+                        album.coverUrl ? "text-white text-shadow-sm" : (activeAlbum === album.id ? "text-inner-accent" : "text-inner-text")
+                    )}>
+                        {album.name}
+                    </span>
+                </div>
             </button>
 
-            {/* Context Menu Trigger */}
-            {album.id !== "all" && (
+            {/* Context Menu Trigger - Absolute positioned on the card */}
+            {!isAll && (
                 <button
                     onClick={(e) => onContextMenu(e, album.id)}
-                    className="ml-1 p-1 rounded-full hover:bg-black/10 transition-colors"
+                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-1 rounded-full bg-white/80 hover:bg-white shadow-sm transition-opacity z-10"
                 >
                     <MoreHorizontal size={14} className="text-inner-text-muted" />
                 </button>
@@ -49,11 +62,11 @@ function DroppableAlbumPill({ album, activeAlbum, onClick, onContextMenu }: any)
     );
 }
 
-export default function AlbumPills({ activeAlbum, onAlbumChange }: AlbumPillsProps) {
+export default function AlbumStrip({ activeAlbum, onAlbumChange }: AlbumStripProps) {
     const { albums, loading, refreshAlbums } = useAlbums();
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // Lifted Menu State
+    // Lifted Menu State (re-using logic)
     const [menuState, setMenuState] = useState<{ id: string, x: number, y: number } | null>(null);
 
     const handleContextMenu = (e: React.MouseEvent, albumId: string) => {
@@ -62,48 +75,43 @@ export default function AlbumPills({ activeAlbum, onAlbumChange }: AlbumPillsPro
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         setMenuState({
             id: albumId,
-            x: rect.right,
-            y: rect.bottom + 5
+            x: rect.right + 5,
+            y: rect.top
         });
     };
 
     return (
         <>
-            <div className="w-full overflow-x-auto py-4 scrollbar-hide relative">
-                <div className="flex w-max items-center gap-2 px-4 md:px-8">
-                    <button
-                        onClick={() => onAlbumChange("all")}
-                        className={cn(
-                            "rounded-full px-4 py-1.5 text-sm font-medium transition-colors whitespace-nowrap",
-                            activeAlbum === "all"
-                                ? "bg-inner-accent text-white shadow-sm"
-                                : "border border-inner-border text-inner-text-muted hover:bg-inner-bg"
-                        )}
-                    >
-                        All Photos
-                    </button>
+            <div className="w-full overflow-x-auto py-6 scrollbar-hide relative min-h-[140px]">
+                <div className="flex w-max items-center gap-4 px-4 md:px-8">
+                    {/* All Photos "Album" */}
+                    <AlbumCard
+                        album={{ id: "all", name: "All Photos" }}
+                        activeAlbum={activeAlbum}
+                        onClick={onAlbumChange}
+                        onContextMenu={handleContextMenu}
+                    />
 
                     {loading && (
-                        <div className="h-8 w-24 animate-pulse rounded-full bg-inner-bg" />
+                        <div className="h-24 w-24 animate-pulse rounded-xl bg-gray-200" />
                     )}
 
                     {albums.map((album) => (
-                        <DroppableAlbumPill
+                        <AlbumCard
                             key={album.id}
                             album={album}
                             activeAlbum={activeAlbum}
                             onClick={onAlbumChange}
-                            refreshAlbums={refreshAlbums}
                             onContextMenu={handleContextMenu}
                         />
                     ))}
 
                     <button
                         onClick={() => setIsModalOpen(true)}
-                        className="flex items-center gap-1.5 rounded-full border border-dashed border-inner-text-muted/30 px-4 py-1.5 text-sm font-medium text-inner-text-muted hover:border-inner-accent hover:text-inner-accent transition-colors whitespace-nowrap"
+                        className="flex h-24 w-24 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-inner-text-muted/30 text-inner-text-muted hover:border-inner-accent hover:text-inner-accent hover:bg-inner-accent/5 transition-all shrink-0"
                     >
-                        <Plus size={14} />
-                        <span>New Album</span>
+                        <Plus size={24} />
+                        <span className="text-xs font-medium">New Album</span>
                     </button>
                 </div>
             </div>
@@ -114,7 +122,7 @@ export default function AlbumPills({ activeAlbum, onAlbumChange }: AlbumPillsPro
                 onAlbumCreated={refreshAlbums}
             />
 
-            {/* Render Context Menu outside the scroll container */}
+            {/* Render Context Menu outside */}
             {menuState && (
                 <>
                     <div className="fixed inset-0 z-50" onClick={() => setMenuState(null)} />

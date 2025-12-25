@@ -3,13 +3,16 @@
 import { motion } from "framer-motion";
 import { Plus, Play, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 
 interface HeaderProps {
     onUploadClick?: () => void;
+    activeAlbum?: string;
 }
 
-export default function Header({ onUploadClick }: HeaderProps) {
+export default function Header({ onUploadClick, activeAlbum = "all" }: HeaderProps) {
     const { displayName, signOut } = useAuth();
+    const router = useRouter();
 
     return (
         <motion.header
@@ -19,14 +22,22 @@ export default function Header({ onUploadClick }: HeaderProps) {
             className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-inner-border bg-inner-bg-elevated/90 px-4 backdrop-blur-md md:px-8"
         >
             <div className="flex items-center gap-4">
-                <h1 className="font-display text-2xl text-inner-text">
-                    SWEENEY VAULT
-                </h1>
+                <button
+                    onClick={() => router.push("/search")}
+                    className="group flex flex-col items-start hover:opacity-70 transition-opacity"
+                >
+                    <h1 className="font-display text-2xl text-inner-text">
+                        SWEENEY VAULT
+                    </h1>
+                </button>
             </div>
 
             <div className="flex items-center gap-2 md:gap-6">
                 {/* Actions */}
-                <button className="hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-inner-text-muted hover:bg-inner-bg md:flex">
+                <button
+                    onClick={() => router.push(`/slideshow?albumId=${activeAlbum}`)}
+                    className="hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-inner-text-muted hover:bg-inner-bg md:flex"
+                >
                     <Play size={16} />
                     <span>Slideshow</span>
                 </button>
