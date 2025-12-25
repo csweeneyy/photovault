@@ -1,26 +1,101 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Landing Page (Cool/Editorial) */
+  --landing-bg: #FAFAFA;
+  --landing-grid: #E5E5E5;
+  --landing-text: #1A1A1A;
+  --landing-text-muted: #666666;
+  
+  /* Inner Pages (Warm/Cozy) */
+  --inner-bg: #FDF9F3;
+  --inner-bg-elevated: #FFFFFF;
+  --inner-border: #E8E0D5;
+  --inner-text: #2C2416;
+  --inner-text-muted: #8B7E6A;
+  --inner-accent: #C4A77D;
+  --inner-accent-hover: #B8956A;
+  
+  /* Shared */
+  --black: #1A1A1A;
+  --white: #FFFFFF;
+  --error: #DC2626;
+  --success: #16A34A;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(44, 36, 22, 0.05);
+  --shadow-md: 0 4px 12px rgba(44, 36, 22, 0.08);
+  --shadow-lg: 0 12px 40px rgba(44, 36, 22, 0.12);
+  --shadow-xl: 0 24px 60px rgba(44, 36, 22, 0.16);
+
+  /* Spacing Scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@theme {
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-landing-bg: var(--landing-bg);
+  --color-landing-grid: var(--landing-grid);
+  --color-landing-text: var(--landing-text);
+  --color-landing-text-muted: var(--landing-text-muted);
+
+  --color-inner-bg: var(--inner-bg);
+  --color-inner-bg-elevated: var(--inner-bg-elevated);
+  --color-inner-border: var(--inner-border);
+  --color-inner-text: var(--inner-text);
+  --color-inner-text-muted: var(--inner-text-muted);
+  --color-inner-accent: var(--inner-accent);
+  --color-inner-accent-hover: var(--inner-accent-hover);
+
+  --color-error: var(--error);
+  --color-success: var(--success);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+  background-color: var(--landing-bg);
+  color: var(--landing-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Landing Page Grid Background */
+.landing-bg {
+  background-color: var(--landing-bg);
+  background-image: 
+    linear-gradient(var(--landing-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--landing-grid) 1px, transparent 1px);
+  background-size: 60px 60px;
 }
