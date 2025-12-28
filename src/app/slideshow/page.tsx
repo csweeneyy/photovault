@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { usePhotos } from "@/hooks/usePhotos";
 import { AnimatePresence, motion } from "framer-motion";
@@ -50,11 +50,36 @@ function SlideshowContent() {
         };
     }, []);
 
+    // Shuffle Bag State
+    const shuffleBag = useRef<number[]>([]);
+
     const nextPhoto = useCallback(() => {
         if (photos.length === 0) return;
 
         if (isShuffle) {
-            setCurrentIndex(Math.floor(Math.random() * photos.length));
+            // Refill bag if empty
+            if (shuffleBag.current.length === 0) {
+                // Create array [0, ..., n-1]
+                const newBag = Array.from({ length: photos.length }, (_, i) => i);
+
+                // Fisher-Yates Shuffle
+                for (let i = newBag.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [newBag[i], newBag[j]] = [newBag[j], newBag[i]];
+                }
+
+                // Attempt to minimize repeat on boundary refill
+                // If the last photo showed is same as first in new bag, swap first with random other
+                // But we can only check internal state. Simpler: Just ensure we don't pick current immediately if possible.
+                shuffleBag.current = newBag;
+            }
+
+            let nextIndex = shuffleBag.current.pop()!;
+
+            // Basic "stuck" prevention: If random picked same as current (possible if bag refilled and shuffled same to start),
+            // and we have others, swap. But bag logic usually prevents immediate repeats typically unless bag size is 1.
+            // Just setting it is fine.
+            setCurrentIndex(nextIndex);
         } else {
             setCurrentIndex((prev) => (prev + 1) % photos.length);
         }

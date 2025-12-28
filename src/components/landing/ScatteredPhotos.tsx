@@ -19,24 +19,50 @@ const POSITIONS = [
     { x: 20, y: 82, r: -8, scale: 1.0 },  // Bottom Left (low) - shifted up from 85
 ];
 
+interface ScatteredPhoto {
+    src: string;
+    x: number;
+    y: number;
+    r: number;
+    scale: number;
+}
+
 export default function ScatteredPhotos() {
     const [mounted, setMounted] = useState(false);
-    const [photos, setPhotos] = useState<{ src: string, x: number, y: number, r: number, scale: number }[]>([]);
+    const [photos, setPhotos] = useState<ScatteredPhoto[]>([]);
 
     useEffect(() => {
         const fetchBackgroundPhotos = async () => {
             const supabase = createClient();
+            let vaultUrls: string[] = [];
 
-            // 1. Get random photos from vault
-            const { data } = await supabase
-                .from("photos")
-                .select("storage_path")
-                .limit(20)
-                .order("created_at", { ascending: false }); // Just get recent ones or randomize if we could
+            try {
+                // 1. Try to get random photos via RPC (works for anon/lock screen if migration runs)
+                const { data, error } = await supabase
+                    .rpc("get_random_background_photos", { limit_count: 12 });
 
-            const vaultUrls = (data || []).map(p =>
-                supabase.storage.from("photos").getPublicUrl(p.storage_path).data.publicUrl
-            );
+                if (!error && data) {
+                    vaultUrls = data.map((p: { storage_path: string }) =>
+                        supabase.storage.from("photos").getPublicUrl(p.storage_path).data.publicUrl
+                    );
+                } else {
+                    // Fallback: Standard Select (Only works if logged in, but better than nothing)
+                    console.warn("Random RPC failed (maybe run migration?), falling back to recent.");
+                    const { data: recentData } = await supabase
+                        .from("photos")
+                        .select("storage_path")
+                        .limit(20)
+                        .order("created_at", { ascending: false });
+
+                    if (recentData) {
+                        vaultUrls = recentData.map(p =>
+                            supabase.storage.from("photos").getPublicUrl(p.storage_path).data.publicUrl
+                        );
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch background photos", e);
+            }
 
             // 2. Combine with Favorites
             const allUrls = [...HARDCODED_FAVORITES, ...vaultUrls];
@@ -71,7 +97,7 @@ export default function ScatteredPhotos() {
     );
 }
 
-function FloatingPhoto({ photo, index }: { photo: any; index: number }) {
+function FloatingPhoto({ photo, index }: { photo: ScatteredPhoto; index: number }) {
     // Random float parameters
     const duration = 6 + Math.random() * 4; // 6-10s
 
